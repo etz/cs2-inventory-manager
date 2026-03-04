@@ -28,9 +28,10 @@ function content() {
 
 
 
-  // Convert to dict for easier match
+  // Convert to dict for easier match (guard against invalid array length)
     let finalList = {};
-    inventory.inventory.forEach(element => {
+    const invArr = Array.isArray(inventory.inventory) && inventory.inventory.length >= 0 && inventory.inventory.length <= 500000 ? inventory.inventory : [];
+    invArr.forEach(element => {
       if (finalList[element.item_name] == undefined) {
         finalList[element.item_name] = [element]
       }
@@ -45,9 +46,11 @@ function content() {
     // Inventory to use
     let finalInventoryToUse = [] as any;
     let seenNames = [] as any;
-    inventoryFilters.inventoryFiltered.forEach((projectRow) => {
+    const filteredArr = Array.isArray(inventoryFilters.inventoryFiltered) ? inventoryFilters.inventoryFiltered : [];
+    filteredArr.forEach((projectRow) => {
       if (finalList[projectRow.item_name] != undefined && seenNames.includes(projectRow.item_name) == false) {
-        finalInventoryToUse = [...finalInventoryToUse, ...finalList[projectRow.item_name]]
+        const list = finalList[projectRow.item_name];
+        finalInventoryToUse = Array.isArray(list) && list.length <= 500000 ? [...finalInventoryToUse, ...list] : finalInventoryToUse;
         seenNames.push(projectRow.item_name)
       }
     })

@@ -16,7 +16,8 @@
     "start:renderer": "cross-env NODE_ENV=development TS_NODE_TRANSPILE_ONLY=true webpack serve --config ./.erb/configs/webpack.config.renderer.dev.ts",
     "test": "jest",
     "electron-dev": "electron .",
-    "electron-trace": "electron --trace-warnings ."
+    "electron-trace": "electron --trace-warnings .",
+    "update-cs2-backup": "node scripts/update-cs2-backup.js"
   },
   "lint-staged": {
     "*.{js,jsx,ts,tsx}": [
@@ -138,7 +139,7 @@
     "@types/history": "4.7.9",
     "@types/jest": "^27.0.2",
     "@types/lodash": "^4.14.184",
-    "@types/node": "^16.11.6",
+    "@types/node": "^20.0.0",
     "@types/react": "^17.0.33",
     "@types/react-dom": "^17.0.10",
     "@types/react-router": "^5.1.17",
@@ -243,9 +244,9 @@
     "update-electron-app": "^2.0.1",
     "xmldom": "^0.6.0"
   },
-  "devEngines": {
-    "node": ">=14.x",
-    "npm": ">=7.x"
+  "engines": {
+    "node": ">=20.0.0",
+    "npm": ">=10.x"
   },
   "collective": {
     "url": "https://opencollective.com/electron-react-boilerplate-594"

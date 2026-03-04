@@ -89,9 +89,12 @@ export default function OverallMajor() {
         },
       },
       y: {
+        min: 0,
+        max: 100,
+        suggestedMax: 100,
         ticks: {
-
           beginAtZero: true,
+          maxTicksLimit: 11,
           callback: function (value) { if (value % 1 === 0) { return value; } }
         },
       },
@@ -111,40 +114,46 @@ export default function OverallMajor() {
   let seenNamesInventory: any = {};
   let seenNamesStorage: any = {};
 
-  let inventoryFiltered = searchFilter(inventory.combinedInventory, Reducer.getStorage(Reducer.names.inventoryFilters), undefined)
+  const combined = Array.isArray(inventory.combinedInventory) && inventory.combinedInventory.length <= 500000 ? inventory.combinedInventory : [];
+  const storage = Array.isArray(inventory.storageInventory) && inventory.storageInventory.length <= 500000 ? inventory.storageInventory : [];
+  let inventoryFiltered = searchFilter(combined, Reducer.getStorage(Reducer.names.inventoryFilters), undefined);
 
-  let storageFiltered = searchFilter(inventory.storageInventory, Reducer.getStorage(Reducer.names.inventoryFilters), undefined)
+  let storageFiltered = searchFilter(storage, Reducer.getStorage(Reducer.names.inventoryFilters), undefined);
 
+  const invF = Array.isArray(inventoryFiltered) && inventoryFiltered.length <= 500000 ? inventoryFiltered : [];
+  const storF = Array.isArray(storageFiltered) && storageFiltered.length <= 500000 ? storageFiltered : [];
   let overallData = runArray(
-    [...inventoryFiltered, ...storageFiltered],
+    [...invF, ...storF],
     seenNamesOverall,
     settingsdata.overview.by,
     PricingConverter
   );
   let inventoryData = getObject(
-    inventoryFiltered,
+    invF,
     seenNamesInventory,
     settingsdata.overview.by,
     PricingConverter
   );
-  let storageData = getObject(storageFiltered, seenNamesStorage, settingsdata.overview.by, PricingConverter);
+  let storageData = getObject(storF, seenNamesStorage, settingsdata.overview.by, PricingConverter);
 
-  console.log(overallData, inventoryData, storageData);
+  const maxBars = 20;
+  const chartSlice = overallData.slice(0, maxBars);
+  const safeNum = (v: unknown) => (typeof v === 'number' && Number.isFinite(v) ? v : 0);
 
   const data = {
-    labels: overallData.slice(0, 20).map((itemRow) => itemRow[0]?.slice(0, 40)),
+    labels: chartSlice.map((itemRow) => itemRow[0]?.slice(0, 40) ?? ''),
 
     datasets: [
       {
         label: 'Inventory',
-        data: overallData.map((itemRow) => inventoryData[itemRow[0]]),
+        data: chartSlice.map((itemRow) => safeNum(inventoryData[itemRow[0]])),
         backgroundColor: 'rgba(255, 99, 132, 0.2)',
         borderColor: 'rgba(255, 99, 132, 1)',
         borderWidth: 1,
       },
       {
         label: 'Storage Units',
-        data: overallData.map((itemRow) => storageData[itemRow[0]]),
+        data: chartSlice.map((itemRow) => safeNum(storageData[itemRow[0]])),
         backgroundColor: 'rgb(50, 91, 136, 0.2)',
         borderColor: 'rgb(50, 91, 136, 1)',
         borderWidth: 1,

@@ -56,11 +56,12 @@ export async function getAllStorages(
     let addArray: Array<ItemRow> = []
     for (const [_key, project] of Object.entries(returnValue)) {
       if (!state.moveFromReducer.activeStorages.includes(project.item_id)) {
-        addArray = [...addArray, ...await StorageClass.addStorage(
+        const next = await StorageClass.addStorage(
           project as ItemRowStorage,
           addArray
-
-        )]
+        );
+        const nextSafe = Array.isArray(next) && next.length <= 500000 ? next : [];
+        addArray = addArray.length + nextSafe.length <= 500000 ? [...addArray, ...nextSafe] : addArray;
       }
     }
     return

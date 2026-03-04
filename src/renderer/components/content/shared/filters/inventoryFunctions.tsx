@@ -47,11 +47,14 @@ async function getCategory(toLoopThrough: Array<ItemRow | ItemRowStorage>, addit
 
 // This will combine the inventory when specific conditions match
 export default function combineInventory(thisInventory: Array<ItemRow | ItemRowStorage>, settings: any, additionalObjectToAdd: any = {}) {
-
+  const MAX_SAFE_LENGTH = 500000;
+  const safeInventory = Array.isArray(thisInventory) && thisInventory.length >= 0 && thisInventory.length <= MAX_SAFE_LENGTH
+    ? thisInventory
+    : [];
   const seenProducts = [] as any;
   const newInventory = [] as any;
 
-  for (const [, value] of Object.entries(thisInventory)) {
+  for (const [, value] of Object.entries(safeInventory)) {
     let valued = value;
 
     // Create a string that matches the conditions
@@ -72,7 +75,7 @@ export default function combineInventory(thisInventory: Array<ItemRow | ItemRowS
 
     // Filter the inventory
     if (seenProducts.includes(valueConditions) == false) {
-      let length = thisInventory.filter(function (item) {
+      let length = safeInventory.filter(function (item) {
         let wearName = item['item_wear_name']  || 0
         let itemConditions =
           item['item_name'] +

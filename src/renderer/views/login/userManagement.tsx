@@ -78,7 +78,9 @@ export default function UserGrid({ clickOnProfile, deleteUser,  runDeleteUser })
   async function handleOnDragEnd(result) {
     // Check if actually moved
     if (!result.destination) return;
-    const items = Array.from(getUsers);
+    const items = Array.isArray(getUsers)
+      ? (getUsers.length <= 500000 ? [...getUsers] : getUsers.slice(0, 500000))
+      : (typeof getUsers?.length === 'number' && getUsers.length >= 0 && getUsers.length <= 500000 ? Array.from(getUsers) : []);
 
     // Store change locally and in the settings
     window.electron.ipcRenderer.setAccountPosition(result.draggableId, result.destination.index)

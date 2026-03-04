@@ -104,8 +104,11 @@ Casemove was created by Nombers.
 
 ## How to build
 
-The main instructions on how to build the application from source be found using the [Electron React Boilerplate](https://github.com/electron-react-boilerplate/electron-react-boilerplate) and it's [docs](https://electron-react-boilerplate.js.org/docs/building). 
-I've built the app using [NVM](https://github.com/nvm-sh/nvm) with node version 14.18.2. 
+The main instructions on how to build the application from source be found using the [Electron React Boilerplate](https://github.com/electron-react-boilerplate/electron-react-boilerplate) and it's [docs](https://electron-react-boilerplate.js.org/docs/building).
+
+**Prerequisites:** Node.js 20 LTS (or 18+) and npm 10+. If you use [NVM](https://github.com/nvm-sh/nvm), run `nvm use` in the project root to pick up the version from `.nvmrc`.
+
+To verify the app builds and runs: `npm install`, then `npm run build`, then `npm start`. 
 
 
 ----

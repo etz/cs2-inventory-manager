@@ -23,37 +23,39 @@ export default function BarAppMajor() {
           text: 'Majors',
           color: '#d6d3cd'
       }
-  }
+  },
+    scales: {
+      y: { min: 0, max: 100, ticks: { maxTicksLimit: 11 } },
+      x: { ticks: { maxTicksLimit: 20 } },
+    },
   };
 
   // Go through inventory and find matching categories
   const inventory = useSelector((state: any) => state.inventoryReducer);
+  const combined = Array.isArray(inventory?.combinedInventory) ? inventory.combinedInventory : [];
+  const storageInv = Array.isArray(inventory?.storageInventory) ? inventory.storageInventory : [];
 
-  // Convert inventory to chart data
+  const safeNum = (v: unknown): number => (typeof v === 'number' && Number.isFinite(v) ? v : 0);
   let inventoryDataToUse: Array<number> = [];
   let storageUnitDataToUse: Array<number> = [];
 
   Object.keys(itemSubCategories.majors).forEach(category => {
-    const inventoryResult = inventory.combinedInventory.filter(itemRow => itemRow.major == category);
-    const storageResult = inventory.storageInventory.filter(itemRow => itemRow.major == category);
-    let categoryCounter = 0
-    inventoryResult.forEach(element => {
-      categoryCounter = categoryCounter + element.combined_QTY
+    const inventoryResult = combined.filter((itemRow: any) => itemRow.major == category);
+    const storageResult = storageInv.filter((itemRow: any) => itemRow.major == category);
+    let categoryCounter = 0;
+    inventoryResult.forEach((element: any) => {
+      categoryCounter += safeNum(element.combined_QTY);
     });
-    let storageCounter = 0
-    storageResult.forEach(element => {
-      storageCounter = storageCounter + element.combined_QTY
+    let storageCounter = 0;
+    storageResult.forEach((element: any) => {
+      storageCounter += safeNum(element.combined_QTY);
     });
-
-    inventoryDataToUse.push(categoryCounter)
-    storageUnitDataToUse.push(storageCounter)
+    inventoryDataToUse.push(categoryCounter);
+    storageUnitDataToUse.push(storageCounter);
   });
-  console.log(storageUnitDataToUse)
-
 
   const data = {
     labels: Object.keys(itemSubCategories.majors),
-
 
     datasets: [
       {

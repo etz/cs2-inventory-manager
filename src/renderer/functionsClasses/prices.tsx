@@ -2,6 +2,15 @@ import { ItemRow } from 'renderer/interfaces/items';
 import { Prices, Settings } from 'renderer/interfaces/states';
 import { pricing_add_to_requested } from 'renderer/store/actions/pricingActions';
 
+const MAX_SAFE_PRICE = 1e12;
+
+function safePrice(value: number, nanToZero: boolean): number {
+  if (value == null || typeof value !== 'number') return nanToZero ? 0 : NaN;
+  if (Number.isNaN(value) || !Number.isFinite(value)) return nanToZero ? 0 : NaN;
+  if (value < 0 || value > MAX_SAFE_PRICE) return nanToZero ? 0 : NaN;
+  return value;
+}
+
 export class ConvertPrices {
   settingsData: Settings;
   prices: Prices;
@@ -12,20 +21,19 @@ export class ConvertPrices {
   }
 
   _getName(itemRow: ItemRow) {
-    return itemRow.item_name + itemRow.item_wear_name || '';
+    return itemRow.item_name + (itemRow.item_wear_name || '');
   }
 
-  getPrice(itemRow:ItemRow, nanToZero=false) {
-    let itemPrice =
+  getPrice(itemRow: ItemRow, nanToZero = false) {
+    const sourcePrice =
       this.prices.prices[this._getName(itemRow)]?.[
         this.settingsData.source.title
-      ] * this.settingsData.currencyPrice[this.settingsData.currency];
-
-    if (nanToZero && isNaN(itemPrice)) {
-      return 0
-    }
-
-    return itemPrice
+      ];
+    const currencyMultiplier = this.settingsData.currencyPrice[this.settingsData.currency];
+    const value =
+      (typeof sourcePrice === 'number' ? sourcePrice : NaN) *
+      (typeof currencyMultiplier === 'number' ? currencyMultiplier : NaN);
+    return safePrice(value, nanToZero);
   }
 }
 
@@ -35,21 +43,32 @@ export class ConvertPricesFormatted extends ConvertPrices {
   }
 
   formatPrice(price: number) {
+    const safe = safePrice(price, true);
     return new Intl.NumberFormat(this.settingsData.locale, {
       style: 'currency',
       currency: this.settingsData.currency,
-    }).format(price);
+    }).format(safe);
   }
 
   getFormattedPrice(itemRow: ItemRow) {
-    return this.formatPrice(this.getPrice(itemRow));
+    return this.formatPrice(this.getPrice(itemRow, true));
   }
+
   getFormattedPriceCombined(itemRow: ItemRow) {
-    let comQty = itemRow?.combined_QTY as number;
+    const price = this.getPrice(itemRow, true);
+    const comQty =
+      typeof itemRow?.combined_QTY === 'number' &&
+      Number.isFinite(itemRow.combined_QTY) &&
+      itemRow.combined_QTY >= 0 &&
+      itemRow.combined_QTY <= 1e7
+        ? itemRow.combined_QTY
+        : 1;
+    const total = price * comQty;
+    const clamped = safePrice(total, true);
     return new Intl.NumberFormat(this.settingsData.locale, {
       style: 'currency',
       currency: this.settingsData.currency,
-    }).format(comQty * this.getPrice(itemRow));
+    }).format(clamped);
   }
 }
 

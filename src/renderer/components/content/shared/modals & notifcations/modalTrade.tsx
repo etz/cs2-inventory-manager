@@ -65,7 +65,8 @@ export default function TradeModal() {
       if (tradeUpData.tradeUpProducts[0]?.stattrak) {
         rarityToUse += 10;
       }
-      let idsToGet = [...tradeUpData.tradeUpProductsIDS] as any;
+      const idsSource = tradeUpData?.tradeUpProductsIDS;
+      let idsToGet = (Array.isArray(idsSource) && idsSource.length <= 500000) ? [...idsSource] as any : [];
       inventory.inventory.forEach((element) => {
         idsToGet.push(element.item_id);
       });

@@ -138,21 +138,27 @@ if (isDevelopment) {
 }
 
 const installExtensions = async () => {
-  const installer = require('electron-devtools-installer');
-  const forceDownload = !process.env.UPGRADE_EXTENSIONS;
-  const extensions = ['REACT_DEVELOPER_TOOLS', 'REDUX_DEVTOOLS'];
+  try {
+    const installer = require('electron-devtools-installer');
+    const forceDownload = !process.env.UPGRADE_EXTENSIONS;
+    const extensions = ['REACT_DEVELOPER_TOOLS', 'REDUX_DEVTOOLS'];
 
-  return installer
-    .default(
+    await installer.default(
       extensions.map((name) => installer[name]),
       forceDownload
-    )
-    .catch(console.log);
+    );
+  } catch (err) {
+    // DevTools install often fails (e.g. invalid CRX when Chrome Web Store returns HTML).
+    // App works without them; avoid surfacing to user.
+    if (process.env.NODE_ENV === 'development' && process.env.DEBUG_EXTENSIONS === 'true') {
+      console.warn('DevTools extensions install skipped:', (err as Error)?.message ?? err);
+    }
+  }
 };
 
 const createWindow = async () => {
   if (isDevelopment) {
-    await installExtensions();
+    void installExtensions();
   }
 
   const RESOURCES_PATH = app.isPackaged

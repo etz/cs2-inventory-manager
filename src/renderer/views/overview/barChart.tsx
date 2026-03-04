@@ -36,6 +36,8 @@ export default function BarApp() {
       }
   },
     scales: {
+      x: { ticks: { maxTicksLimit: 20 } },
+      y: { min: 0, max: 100, ticks: { maxTicksLimit: 11 } },
       r: {
         angleLines: {
           color: 'rgba(255, 255, 255, 0.2)',
@@ -54,29 +56,30 @@ export default function BarApp() {
 
   // Go through inventory and find matching categories
   const inventory = useSelector((state: any) => state.inventoryReducer);
-  inventory.combinedInventory.forEach(element => {
+  const combined = Array.isArray(inventory?.combinedInventory) ? inventory.combinedInventory : [];
+  const storageInv = Array.isArray(inventory?.storageInventory) ? inventory.storageInventory : [];
+  combined.forEach((element: any) => {
     if (resultingData[element.category]) {
-      resultingData[element.category].inventory = resultingData?.[element.category]?.inventory + element.combined_QTY
+      resultingData[element.category].inventory = (resultingData[element.category]?.inventory || 0) + (Number.isFinite(Number(element.combined_QTY)) ? Number(element.combined_QTY) : 0)
     }
   });
 
   // Go through Storage Units
-  inventory.storageInventory.forEach(element => {
-    console.log(element)
+  storageInv.forEach((element: any) => {
     if (resultingData[element.category]) {
-      resultingData[element.category].storageUnits = resultingData?.[element.category]?.storageUnits + element.combined_QTY
+      resultingData[element.category].storageUnits = (resultingData[element.category]?.storageUnits || 0) + (Number.isFinite(Number(element.combined_QTY)) ? Number(element.combined_QTY) : 0)
     }
   });
 
   // Convert inventory to chart data
+  const safeNum = (v: unknown): number => (typeof v === 'number' && Number.isFinite(v) ? v : 0);
   let inventoryDataToUse: Array<number> = [];
   let storageUnitDataToUse: Array<number> = [];
 
   categoriesFixed.forEach(category => {
-    inventoryDataToUse.push(resultingData[category].inventory)
-    storageUnitDataToUse.push(resultingData[category].storageUnits)
+    inventoryDataToUse.push(safeNum(resultingData[category]?.inventory));
+    storageUnitDataToUse.push(safeNum(resultingData[category]?.storageUnits));
   });
-  console.log(storageUnitDataToUse)
 
 
   const data = {

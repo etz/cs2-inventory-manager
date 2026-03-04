@@ -4,7 +4,19 @@ import App from "./App";
 import { PersistGate } from 'redux-persist/integration/react'
 import returnVar from './store/configureStore'
 
-const myVar = returnVar()
+const myVar = returnVar();
+
+window.addEventListener('error', (event) => {
+  if (event.message?.includes('Invalid array length') || event.error?.name === 'RangeError') {
+    console.error('[RangeError]', event.error?.message ?? event.message, event.filename, event.lineno, event.colno);
+  }
+});
+window.addEventListener('unhandledrejection', (event) => {
+  const err = event.reason;
+  if (err?.name === 'RangeError' || err?.message?.includes?.('Invalid array length')) {
+    console.error('[RangeError unhandled]', err?.message, err?.stack);
+  }
+});
 
 
 declare global {

@@ -2,51 +2,63 @@ const fs = require('fs');
 const VDF = require('@node-steam/vdf');
 const axios = require('axios');
 
+// CS2 only (GameTracking-CS2); backup used if fetch/parse fails
 const itemsLink =
-  'https://raw.githubusercontent.com/SteamDatabase/GameTracking-CSGO/master/csgo/scripts/items/items_game.txt';
+  'https://raw.githubusercontent.com/SteamDatabase/GameTracking-CS2/master/game/csgo/pak01_dir/scripts/items/items_game.txt';
 const translationsLink =
-  'https://raw.githubusercontent.com/SteamDatabase/GameTracking-CSGO/master/csgo/resource/csgo_english.txt';
+  'https://raw.githubusercontent.com/SteamDatabase/GameTracking-CS2/master/game/csgo/pak01_dir/resource/csgo_english.txt';
 
 function fileCatcher(endNote) {
   return `${csgo_install_directory}${endNote}`;
 }
 
-async function fileGetError(items) {
-  let csgoEnglish = require('./itemsBackupFiles/csgo_english.json');
+function loadBackupTranslations(items) {
+  const csgoEnglish = require('./itemsBackupFiles/csgo_english.json');
   items.setTranslations(csgoEnglish, 'Error');
-  let itemsGame = require('./itemsBackupFiles/items_game.json');
+}
+
+function loadBackupItems(items) {
+  const itemsGame = require('./itemsBackupFiles/items_game.json');
   items.setCSGOItems(itemsGame);
+}
+
+async function fileGetError(items) {
+  loadBackupTranslations(items);
+  loadBackupItems(items);
+}
+
+function parseTranslationsResponse(data) {
+  const finalDict = {};
+  const ks = (data || '').split(/\n/);
+  ks.forEach(function (value) {
+    const test = value.match(/"(.*?)"/g);
+    if (test && test[1]) {
+      finalDict[test[0].replaceAll('"', '').toLowerCase()] = test[1];
+    }
+  });
+  return finalDict;
 }
 
 async function getTranslations(items) {
   try {
-    const returnValue = await axios.get(translationsLink).then((response) => {
-      const finalDict = {};
-      const data = response.data;
-      var ks = data.split(/\n/);
-      ks.forEach(function (value) {
-        // Iterate hits
-        var test = value.match(/"(.*?)"/g);
-        if (test && test[1]) {
-          finalDict[test[0].replaceAll('"', '').toLowerCase()] = test[1];
-        }
-      });
-
-      return finalDict;
-    });
-    returnValue['stickerkit_cs20_boost_holo'];
-    items.setTranslations(returnValue, 'normal');
+    const response = await axios.get(translationsLink);
+    const returnValue = parseTranslationsResponse(response.data);
+    if (returnValue && Object.keys(returnValue).length > 0) {
+      items.setTranslations(returnValue, 'normal');
+      return;
+    }
   } catch (err) {
-    console.log('Error occurred during translation parsing');
-    fileGetError(items);
+    // fall through to backup
   }
+  console.log('Translation fetch failed; using backup');
+  loadBackupTranslations(items);
 }
 
 function updateItemsLoop(jsonData, keyToRun) {
   const returnDict = {};
-  for (const [key, value] of Object.entries(jsonData['items_game'])) {
+  for (const [key, value] of Object.entries(jsonData['items_game'] || {})) {
     if (key == keyToRun) {
-      for (const [subKey, subValue] of Object.entries(value)) {
+      for (const [subKey, subValue] of Object.entries(value || {})) {
         returnDict[subKey] = subValue;
       }
     }
@@ -54,45 +66,60 @@ function updateItemsLoop(jsonData, keyToRun) {
   return returnDict;
 }
 
+function parseItemsGameResponse(data) {
+  const dict_to_write = {
+    items: {},
+    paint_kits: {},
+    prefabs: {},
+    sticker_kits: {},
+    casket_icons: {},
+  };
+  const jsonData = VDF.parse(data || '');
+  dict_to_write['items'] = updateItemsLoop(jsonData, 'items');
+  dict_to_write['paint_kits'] = updateItemsLoop(jsonData, 'paint_kits');
+  dict_to_write['prefabs'] = updateItemsLoop(jsonData, 'prefabs');
+  dict_to_write['sticker_kits'] = updateItemsLoop(jsonData, 'sticker_kits');
+  dict_to_write['music_kits'] = updateItemsLoop(
+    jsonData,
+    'music_definitions'
+  );
+  dict_to_write['graffiti_tints'] = updateItemsLoop(
+    jsonData,
+    'graffiti_tints'
+  );
+  const altIcons = updateItemsLoop(jsonData, 'alternate_icons2');
+  dict_to_write['casket_icons'] =
+    altIcons && typeof altIcons['casket_icons'] === 'object'
+      ? altIcons['casket_icons']
+      : {};
+  return dict_to_write;
+}
+
+function isValidItemsPayload(returnValue) {
+  return (
+    returnValue &&
+    returnValue.items &&
+    returnValue.paint_kits &&
+    typeof returnValue.items === 'object' &&
+    typeof returnValue.paint_kits === 'object' &&
+    Object.keys(returnValue.items).length > 0 &&
+    Object.keys(returnValue.paint_kits).length > 0
+  );
+}
+
 async function updateItems(items) {
   try {
-    const returnValue = await axios.get(itemsLink).then((response) => {
-      const dict_to_write = {
-        items: {},
-        paint_kits: {},
-        prefabs: {},
-        sticker_kits: {},
-        casket_icons: {},
-      };
-      const data = response.data;
-      const jsonData = VDF.parse(data);
-      dict_to_write['items'] = updateItemsLoop(jsonData, 'items');
-      dict_to_write['paint_kits'] = updateItemsLoop(jsonData, 'paint_kits');
-      dict_to_write['prefabs'] = updateItemsLoop(jsonData, 'prefabs');
-      dict_to_write['sticker_kits'] = updateItemsLoop(jsonData, 'sticker_kits');
-      dict_to_write['music_kits'] = updateItemsLoop(
-        jsonData,
-        'music_definitions'
-      );
-      dict_to_write['graffiti_tints'] = updateItemsLoop(
-        jsonData,
-        'graffiti_tints'
-      );
-
-      dict_to_write['casket_icons'] = updateItemsLoop(
-        jsonData,
-        'alternate_icons2'
-      )['casket_icons'];
-
-      return dict_to_write;
-    });
-    // Validate data
-    returnValue['items'][1209];
-    items.setCSGOItems(returnValue);
+    const response = await axios.get(itemsLink);
+    const returnValue = parseItemsGameResponse(response.data);
+    if (isValidItemsPayload(returnValue)) {
+      items.setCSGOItems(returnValue);
+      return;
+    }
   } catch (err) {
-    console.log('Error occurred during items parsing');
-    fileGetError(items);
+    // fall through to backup
   }
+  console.log('Items fetch failed; using backup');
+  loadBackupItems(items);
 }
 
 class items {
@@ -344,6 +371,9 @@ class items {
 
   itemProcessorName(storageRow, imageURL) {
     const defIndexresult = this.get_def_index(storageRow['def_index']);
+    if (!defIndexresult) {
+      return `Unknown Item (${storageRow['def_index'] || '?'})`;
+    }
 
     // Check if CSGO Case Key
     if (imageURL == 'econ/tools/weapon_case_key') {
@@ -354,78 +384,84 @@ class items {
     if (storageRow['music_index'] !== undefined) {
       const musicKitIndex = storageRow['music_index'];
       const musicKitResult = this.getMusicKits(musicKitIndex);
-      let nameToUse =
-        'Music Kit | ' + this.getTranslation(musicKitResult['loc_name']);
-
-      return nameToUse;
+      const locName = musicKitResult?.['loc_name'];
+      if (locName != null) {
+        return 'Music Kit | ' + this.getTranslation(locName);
+      }
     }
 
     // Main checks
     // Get first string
-    if (defIndexresult['item_name'] !== undefined) {
-      var baseOne = this.getTranslation(defIndexresult['item_name']);
+    var baseOne;
+    if (defIndexresult['item_name'] != null) {
+      baseOne = this.getTranslation(defIndexresult['item_name']);
     } else if (defIndexresult['prefab'] !== undefined) {
-      const baseSkinName = this.getPrefab(defIndexresult['prefab'])[
-        'item_name'
-      ];
-      var baseOne = this.getTranslation(baseSkinName);
+      const prefabObj = this.getPrefab(defIndexresult['prefab']);
+      const baseSkinName = prefabObj?.['item_name'];
+      baseOne = baseSkinName != null ? this.getTranslation(baseSkinName) : undefined;
     }
 
     // Get second string
+    var baseTwo;
     if (
       storageRow['stickers'] !== undefined &&
       imageURL.includes('econ/characters/') == false
     ) {
       var relevantStickerData = storageRow['stickers'][0];
       if (
-        relevantStickerData['slot'] == 0 &&
-        baseOne.includes('Coin') == false
+        relevantStickerData?.['slot'] == 0 &&
+        baseOne?.includes('Coin') == false
       ) {
         var stickerDefIndex = this.getStickerDetails(
           relevantStickerData['sticker_id']
         );
-        var baseTwo = this.getTranslation(stickerDefIndex['item_name']);
-      }
-    }
-    if (storageRow['paint_index'] !== undefined) {
-      var skinPatternName = this.getPaintDetails(storageRow['paint_index']);
-      var baseTwo = this.getTranslation(skinPatternName['description_tag']);
-    }
-
-    // Get third string (wear name)
-    if (storageRow['paint_wear'] !== undefined) {
-      var baseThree = getSkinWearName(storageRow['paint_wear']);
-    }
-
-    if (baseOne) {
-      var finalName = baseOne;
-      if (baseTwo) {
-        var finalName = `${baseOne} | ${baseTwo}`;
-        if (baseThree) {
-          var finalName = `${baseOne} | ${baseTwo}`;
+        const stickerItemName = stickerDefIndex?.['item_name'];
+        if (stickerItemName != null) {
+          baseTwo = this.getTranslation(stickerItemName);
         }
       }
     }
+    if (storageRow['paint_index'] !== undefined && baseTwo === undefined) {
+      var skinPatternName = this.getPaintDetails(storageRow['paint_index']);
+      const descTag = skinPatternName?.['description_tag'];
+      if (descTag != null) {
+        baseTwo = this.getTranslation(descTag);
+      }
+    }
 
-    if (storageRow['attribute'] !== undefined) {
+    // Get third string (wear name)
+    var baseThree;
+    if (storageRow['paint_wear'] !== undefined) {
+      baseThree = getSkinWearName(storageRow['paint_wear']);
+    }
+
+    var finalName = baseOne || `Unknown Item (${storageRow['def_index'] || '?'})`;
+    if (baseOne && baseTwo) {
+      finalName = `${baseOne} | ${baseTwo}`;
+    }
+
+    if (storageRow['attribute'] !== undefined && finalName) {
       for (const [, value] of Object.entries(storageRow['attribute'])) {
         if (
           value['def_index'] == 140 &&
-          finalName.includes('Souvenir') == false
+          finalName.includes('Souvenir') === false
         ) {
-          var finalName = 'Souvenir ' + finalName;
+          finalName = 'Souvenir ' + finalName;
         }
       }
     }
 
     // Graffiti kit check
-    if (storageRow['graffiti_tint'] !== undefined) {
+    if (storageRow['graffiti_tint'] !== undefined && finalName) {
       const graffitiKitIndex = storageRow['graffiti_tint'];
-      const graffitiKitResult = capitalizeWords(
-        this.getGraffitiKitName(graffitiKitIndex).replaceAll('_', ' ')
-      );
-      var finalName = finalName + ' (' + graffitiKitResult + ')';
-      var finalName = finalName.replace('Swat', 'SWAT');
+      const graffitiKitName = this.getGraffitiKitName(graffitiKitIndex);
+      if (graffitiKitName) {
+        const graffitiKitResult = capitalizeWords(
+          String(graffitiKitName).replaceAll('_', ' ')
+        );
+        finalName = finalName + ' (' + graffitiKitResult + ')';
+        finalName = finalName.replace('Swat', 'SWAT');
+      }
     }
 
     return finalName;
@@ -433,12 +469,17 @@ class items {
 
   itemProcessorImageUrl(storageRow) {
     const defIndexresult = this.get_def_index(storageRow['def_index']);
+    if (!defIndexresult) {
+      return 'econ/default_generated';
+    }
 
     // Music kit check
     if (storageRow['music_index'] !== undefined) {
       const musicKitIndex = storageRow['music_index'];
       const localMusicKits = this.getMusicKits(musicKitIndex);
-      return localMusicKits['image_inventory'];
+      if (localMusicKits?.['image_inventory']) {
+        return localMusicKits['image_inventory'];
+      }
     }
 
     // Rest of check
@@ -451,29 +492,40 @@ class items {
     // Get second string
     if (storageRow['stickers'] !== undefined && imageInventory == undefined) {
       var relevantStickerData = storageRow['stickers'][0];
-      if (relevantStickerData['slot'] == 0) {
+      if (relevantStickerData?.['slot'] == 0) {
         var stickerDefIndex = this.getStickerDetails(
           relevantStickerData['sticker_id']
         );
-        if (stickerDefIndex['patch_material'] !== undefined) {
-          var imageInventory = `econ/patches/${stickerDefIndex['patch_material']}`;
-        } else if (stickerDefIndex['sticker_material'] !== undefined) {
-          var imageInventory = `econ/stickers/${stickerDefIndex['sticker_material']}`;
+        if (stickerDefIndex) {
+          if (stickerDefIndex['patch_material'] != null) {
+            imageInventory = `econ/patches/${stickerDefIndex['patch_material']}`;
+          } else if (stickerDefIndex['sticker_material'] != null) {
+            imageInventory = `econ/stickers/${stickerDefIndex['sticker_material']}`;
+          }
         }
       }
     }
     // Weapons and knifes
     if (storageRow['paint_index'] !== undefined) {
       var skinPatternName = this.getPaintDetails(storageRow['paint_index']);
-      var imageInventory = `econ/default_generated/${defIndexresult['name']}_${skinPatternName['name']}_light_large`;
-    } else if (defIndexresult['baseitem'] == 1) {
+      if (skinPatternName?.['name'] && defIndexresult['name']) {
+        imageInventory = `econ/default_generated/${defIndexresult['name']}_${skinPatternName['name']}_light_large`;
+      }
+    }
+    if (imageInventory === undefined && defIndexresult['baseitem'] == 1) {
       var imageInventory = `econ/weapons/base_weapons/${defIndexresult['name']}`;
+    }
+    if (imageInventory === undefined) {
+      var imageInventory = defIndexresult['image_inventory'] || 'econ/default_generated';
     }
 
     return imageInventory;
   }
   itemProcessorCanBeMoved(returnDict, storageRow) {
     const defIndexresult = this.get_def_index(storageRow['def_index']);
+    if (!defIndexresult) {
+      return true;
+    }
 
     if (defIndexresult['prefab'] !== undefined) {
       if (defIndexresult['prefab'] == 'collectible_untradable') {
@@ -520,16 +572,23 @@ class items {
     return true;
   }
   stickersProcessData(relevantStickerData) {
-    // Get second string
-    var stickerDefIndex = this.getStickerDetails(
-      relevantStickerData['sticker_id']
+    const stickerDefIndex = this.getStickerDetails(
+      relevantStickerData?.['sticker_id']
     );
+    if (!stickerDefIndex || typeof stickerDefIndex !== 'object') {
+      return {
+        sticker_name: 'Unknown',
+        sticker_url: 'econ/default_generated',
+        sticker_type: 'Sticker',
+      };
+    }
+    let imageInventory = 'econ/default_generated';
+    let stickerType = 'Sticker';
     if (stickerDefIndex['patch_material'] !== undefined) {
-      var imageInventory = `econ/patches/${stickerDefIndex['patch_material']}`;
-      var stickerType = 'Patch';
+      imageInventory = `econ/patches/${stickerDefIndex['patch_material']}`;
+      stickerType = 'Patch';
     } else if (stickerDefIndex['sticker_material'] !== undefined) {
-      var imageInventory = `econ/stickers/${stickerDefIndex['sticker_material']}`;
-      var stickerType = 'Sticker';
+      imageInventory = `econ/stickers/${stickerDefIndex['sticker_material']}`;
     }
     const stickerDict = {
       sticker_name: this.getTranslation(stickerDefIndex['item_name']),
@@ -544,9 +603,15 @@ class items {
   }
 
   getTranslation(csgoString) {
-    let stringFormatted = csgoString.replace('#', '').toLowerCase();
-
-    return this.translation[stringFormatted].replaceAll('"', '');
+    if (csgoString == null || typeof csgoString !== 'string') {
+      return 'Unknown';
+    }
+    const stringFormatted = csgoString.replace('#', '').toLowerCase();
+    const value = this.translation[stringFormatted];
+    if (value == null) {
+      return stringFormatted || 'Unknown';
+    }
+    return String(value).replaceAll('"', '');
   }
   getPrefab(prefab) {
     return this.csgoItems['prefabs'][prefab.toString()];

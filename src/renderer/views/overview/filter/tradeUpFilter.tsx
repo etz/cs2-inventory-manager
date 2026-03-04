@@ -13,7 +13,7 @@ export default function TradeUpFilters() {
   });
   totalFloat = totalFloat / tradeUpData.tradeUpProducts.length;
 
-  let productsToUse = [...tradeUpData.tradeUpProducts];
+  let productsToUse = (Array.isArray(tradeUpData?.tradeUpProducts) && tradeUpData.tradeUpProducts.length <= 500000) ? [...tradeUpData.tradeUpProducts] : [];
   while (true) {
     if (productsToUse.length != 10) {
       productsToUse.push({ item_name: 'EMPTY' });

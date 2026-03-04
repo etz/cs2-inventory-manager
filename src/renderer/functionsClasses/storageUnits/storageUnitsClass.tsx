@@ -32,8 +32,10 @@ export class HandleStorageData {
     if (addArray.length == 0) {
       addArray = this.state.inventoryReducer.storageInventory
     }
+    const addSafe = Array.isArray(addArray) && addArray.length <= 500000 ? addArray : [];
+    const combinedSafe = Array.isArray(storageResult.combinedStorages) && storageResult.combinedStorages.length <= 500000 ? storageResult.combinedStorages : [];
     let filteredStorage = await filterItemRows(
-      [...addArray, ...storageResult.combinedStorages],
+      [...addSafe, ...combinedSafe],
       this.state.inventoryFiltersReducer.storageFilter
     );
     filteredStorage = await sortDataFunction(

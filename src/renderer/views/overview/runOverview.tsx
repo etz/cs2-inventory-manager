@@ -49,14 +49,16 @@ function Content() {
 
   
   let PricingRequest = new RequestPrices(dispatch, settingsData, currentState.pricingReducer)
-  PricingRequest.handleRequestArray(currentState.inventoryReducer.inventory)
+  const invList = Array.isArray(currentState.inventoryReducer.inventory) && currentState.inventoryReducer.inventory.length <= 500000 ? currentState.inventoryReducer.inventory : [];
+  PricingRequest.handleRequestArray(invList);
 
-
+  const combinedArr = Array.isArray(inventory.combinedInventory) && inventory.combinedInventory.length <= 500000 ? inventory.combinedInventory : [];
+  const storageArr = Array.isArray(inventory.storageInventory) && inventory.storageInventory.length <= 500000 ? inventory.storageInventory : [];
 
   // Inventory prices
   const PricingClass = new ConvertPrices(settingsData, currentState.pricingReducer)
   let inventoryValue = 0
-  inventory.combinedInventory.forEach(element => {
+  combinedArr.forEach(element => {
     const itemPrice = PricingClass.getPrice(element)
     if (!isNaN(itemPrice)) {
       inventoryValue += itemPrice * element.combined_QTY
@@ -64,7 +66,7 @@ function Content() {
   });
 
   let storageUnitsValue = 0
-  inventory.storageInventory.forEach(element => {
+  storageArr.forEach(element => {
     const itemPrice = PricingClass.getPrice(element)
     if (!isNaN(itemPrice)) {
       storageUnitsValue += itemPrice * element.combined_QTY
@@ -165,7 +167,7 @@ function Content() {
                   </div>
                   <div className="mt-6 flex space-x-3 md:mt-0 md:ml-4">
                     <button
-                      onClick={() => downloadReport(settingsData, currentState.pricingReducer, [...inventory.combinedInventory, ...inventory.storageInventory])}
+                      onClick={() => downloadReport(settingsData, currentState.pricingReducer, [...combinedArr, ...storageArr])}
                       className="inline-flex items-center px-4 py-2 shadow-sm text-sm font-medium rounded-md text-dark-white bg-dark-level-three hover:bg-dark-level-four"
                     >
                       {' '}

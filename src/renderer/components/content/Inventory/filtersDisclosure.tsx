@@ -1,4 +1,5 @@
 import { Disclosure } from '@headlessui/react';
+import { useEffect, useRef } from 'react';
 import { useDispatch, useSelector } from 'react-redux';
 import {
   filterInventoryAddOption,
@@ -16,6 +17,8 @@ export default function InventoryFiltersDisclosure({ClassFilters}) {
   const dispatch = useDispatch();
   const ReducerClass = new ReducerManager(useSelector)
   const currentState: State = ReducerClass.getStorage()
+  const currentStateRef = useRef(currentState)
+  currentStateRef.current = currentState
 
 
   const inventoryFilters = currentState.inventoryFiltersReducer
@@ -77,12 +80,37 @@ export default function InventoryFiltersDisclosure({ClassFilters}) {
       }
     });
   }
-  categoriesToRemove.forEach(element => {
-    addRemoveFilter(element)
-  });
 
-
-
+  // Dispatch filter removal in an effect to avoid "Too many re-renders" (never dispatch during render)
+  useEffect(() => {
+    const state = currentStateRef.current
+    const invFilters = state.inventoryFiltersReducer
+    let totalSeenInner = 0
+    const ignoreCategoriesInner: Filter[] = []
+    Object.entries(ClassFilters.filters as Filters).map(([_key, filterObject]) => {
+      filterObject.map((filter) => {
+        if (invFilters.inventoryFilter.filter((filt) => _.isEqual(filt, filter)).length > 0) {
+          totalSeenInner += 1
+          ignoreCategoriesInner.push(filter)
+        }
+      })
+    })
+    const toRemove: Filter[] = []
+    if (invFilters.inventoryFilter.length > totalSeenInner) {
+      invFilters.inventoryFilter.forEach((element) => {
+        if (!_.some(ignoreCategoriesInner, element) && element.label != 'Storage moveable') {
+          toRemove.push(element)
+        }
+      })
+    }
+    if (toRemove.length === 0) return
+    ;(async () => {
+      for (const element of toRemove) {
+        const action = await filterInventoryAddOption(currentStateRef.current, element)
+        if (action) dispatch(action)
+      }
+    })()
+  }, [inventoryFilters.inventoryFilter.length, totalSeen, ClassFilters, dispatch])
 
   return (
     <Disclosure.Panel className="border-t border-gray-200 py-10">

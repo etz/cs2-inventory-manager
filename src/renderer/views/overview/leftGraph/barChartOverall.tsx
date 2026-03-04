@@ -83,38 +83,48 @@ export default function OverallVolume() {
   let seenNamesInventory: any = {};
   let seenNamesStorage: any = {};
 
+  const combined = Array.isArray(inventory.combinedInventory) && inventory.combinedInventory.length <= 500000 ? inventory.combinedInventory : [];
+  const storage = Array.isArray(inventory.storageInventory) && inventory.storageInventory.length <= 500000 ? inventory.storageInventory : [];
   let inventoryFiltered = searchFilter(
-    inventory.combinedInventory,
+    combined,
     Reducer.getStorage(Reducer.names.inventoryFilters),
     undefined
   );
 
   let storageFiltered = searchFilter(
-    inventory.storageInventory,
+    storage,
     Reducer.getStorage(Reducer.names.inventoryFilters),
     undefined
   );
 
+  const invF = Array.isArray(inventoryFiltered) && inventoryFiltered.length <= 500000 ? inventoryFiltered : [];
+  const storF = Array.isArray(storageFiltered) && storageFiltered.length <= 500000 ? storageFiltered : [];
   let overallData = runArray(
-    [...inventoryFiltered, ...storageFiltered],
+    [...invF, ...storF],
     seenNamesOverall,
     settingsData.overview.by,
     PricingConverter
   );
   let inventoryData = getObject(
-    inventoryFiltered,
+    invF,
     seenNamesInventory,
     settingsData.overview.by,
     PricingConverter
   );
   let storageData = getObject(
-    storageFiltered,
+    storF,
     seenNamesStorage,
     settingsData.overview.by,
     PricingConverter
   );
-  const converter = new ConvertPricesFormatted(settingsData, pricingData)
+  const converter = new ConvertPricesFormatted(settingsData, pricingData);
 
+  const maxBars = 20;
+  const chartSlice = Array.isArray(overallData) ? overallData.slice(0, maxBars) : [];
+  const safeNum = (v: unknown): number => (typeof v === 'number' && Number.isFinite(v) ? v : 0);
+  const yMax = chartSlice.length
+    ? Math.min(1e9, Math.max(1, ...chartSlice.map((row) => safeNum(inventoryData[row[0]]) + safeNum(storageData[row[0]]))))
+    : 100;
 
   const title = (tooltipItems) => {
     if (settingsData.overview.by == 'price') {
@@ -155,8 +165,12 @@ export default function OverallVolume() {
       },
       y: {
         stacked: true,
+        min: 0,
+        max: yMax,
+        suggestedMax: yMax,
         ticks: {
           beginAtZero: true,
+          maxTicksLimit: 11,
           callback: function (value) {
             if (value % 1 === 0) {
               return value;
@@ -168,19 +182,19 @@ export default function OverallVolume() {
   };
 
   const data = {
-    labels: overallData.slice(0, 20).map((itemRow) => itemRow[0]?.slice(0, 40)),
+    labels: chartSlice.map((itemRow) => String(itemRow[0] ?? '').slice(0, 40)),
 
     datasets: [
       {
         label: 'Inventory',
-        data: overallData.map((itemRow) => inventoryData[itemRow[0]]),
+        data: chartSlice.map((itemRow) => safeNum(inventoryData[itemRow[0]])),
         backgroundColor: 'rgba(255, 99, 132, 0.2)',
         borderColor: 'rgba(255, 99, 132, 1)',
         borderWidth: 1,
       },
       {
         label: 'Storage Units',
-        data: overallData.map((itemRow) => storageData[itemRow[0]]),
+        data: chartSlice.map((itemRow) => safeNum(storageData[itemRow[0]])),
         backgroundColor: 'rgb(50, 91, 136, 0.2)',
         borderColor: 'rgb(50, 91, 136, 1)',
         borderWidth: 1,

@@ -9,15 +9,17 @@ function overviewContent() {
   const settingsData = useSelector((state: any) => state.settingsReducer);
   let totalFloat = 0;
   let totalPrice = 0;
-  tradeUpData.tradeUpProducts.forEach((element) => {
+  const products = Array.isArray(tradeUpData?.tradeUpProducts) ? tradeUpData.tradeUpProducts : [];
+  const outcomes = Array.isArray(tradeUpData?.possibleOutcomes) ? tradeUpData.possibleOutcomes : [];
+  products.forEach((element) => {
     totalFloat += element.item_paint_wear;
     totalPrice +=
       pricesResult.prices[element.item_name + element.item_wear_name || '']?.['steam_listing'] *
       settingsData.currencyPrice[settingsData.currency];
   });
-  totalFloat = totalFloat / tradeUpData.tradeUpProducts.length;
+  totalFloat = products.length > 0 ? totalFloat / products.length : 0;
   let totalEV = 0;
-  tradeUpData.possibleOutcomes.forEach((element) => {
+  outcomes.forEach((element) => {
     let individualPrice =
       pricesResult?.prices[element.item_name + element.item_wear_name || '']?.['steam_listing'] * settingsData.currencyPrice[settingsData.currency];
     totalEV += individualPrice * (element.percentage / 100);

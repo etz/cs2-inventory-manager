@@ -14,8 +14,10 @@ export default function CollectionsDropDown() {
   );
   const dispatch = useDispatch();
   dispatch
-  let inventoryToUse = [...inventory.inventory];
-  let collections = [...tradeUpData.collections] as any;
+  const raw = inventory?.inventory;
+  const MAX_SPREAD = 500000;
+  let inventoryToUse = Array.isArray(raw) && raw.length >= 0 && raw.length <= MAX_SPREAD ? [...raw] : [];
+  let collections = (Array.isArray(tradeUpData?.collections) && tradeUpData.collections.length <= 500000) ? [...tradeUpData.collections] as any : [];
 
 
   inventoryToUse = inventoryToUse.filter(function (item) {
